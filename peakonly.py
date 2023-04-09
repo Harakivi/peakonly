@@ -199,11 +199,11 @@ class MainWindow(AbtractMainWindow):
             self._list_of_files.addFile(name)
 
     def _export_features(self, mode):
-        if self._list_of_features.count() > 0:
+        if self._list_of_features.rowCount() > 0:
             if mode == 'csv':
                 # to do: features should be QTreeWidget (root should keep basic information: files and parameters)
                 files = self._feature_parameters['files']
-                table = ResultTable(files, self._list_of_features.features)
+                table = ResultTable(files, self._list_of_features.displayedfeatures)
                 table.fill_zeros(self._feature_parameters['delta mz'])
                 file_name, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Export features', '',
                                                                      'csv (*.csv)')
@@ -402,13 +402,18 @@ class FeatureContextMenu(QtWidgets.QMenu):
         for item in self.parent.get_selected_features():
             feature = item
 
+        if feature == None:
+            return
+
         menu = QtWidgets.QMenu(parent)
 
         with_rt_correction = QtWidgets.QAction('Plot with rt correction', parent)
         without_rt_correction = QtWidgets.QAction('Plot without rt correction', parent)
+        filter_by_intensity = QtWidgets.QAction('Filter by intensity', parent)
 
         menu.addAction(with_rt_correction)
         menu.addAction(without_rt_correction)
+        menu.addAction(filter_by_intensity)
 
         action = menu.exec_(QtGui.QCursor.pos())
 
@@ -416,6 +421,8 @@ class FeatureContextMenu(QtWidgets.QMenu):
             self.parent.plot_feature(feature, shifted=True)
         elif action == without_rt_correction:
             self.parent.plot_feature(feature, shifted=False)
+        elif action == filter_by_intensity:
+            self.parent.filter_features_by_intensity()
 
 
 if __name__ == '__main__':

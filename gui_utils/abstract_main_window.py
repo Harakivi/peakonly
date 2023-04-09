@@ -55,6 +55,13 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             self._list_of_features.add_feature(feature)
         self._feature_parameters = parameters
 
+    def filter_features_by_intensity(self):
+        intensitySetter = IntensitySetterForFilterWindow(self)
+        intensitySetter.exec_()
+        if intensitySetter.runFilter:
+            self._list_of_features.filterFeaturesByIntensity(int(intensitySetter.intensity_getter.text()))
+        
+
     def plotter(self, obj):
         if not self._label2line:  # in case if 'feature' was plotted
             self._figure.clear()
@@ -146,3 +153,38 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             self._ax.set_ylabel('Intensity')
             self._ax.ticklabel_format(axis='y', scilimits=(0, 0))
         self._canvas.draw()
+
+class IntensitySetterForFilterWindow(QtWidgets.QDialog):
+    def __init__(self, parent: AbtractMainWindow):
+        self.parent = parent
+        super().__init__(parent)
+        self.setWindowTitle('peakonly: filter features by intensity')
+        self._init_ui()  # initialize user interface
+
+    def _init_ui(self):
+        self.runFilter = False
+
+        # Selection of parameters
+        settings_layout = QtWidgets.QVBoxLayout()
+
+        intensity_label = QtWidgets.QLabel()
+        intensity_label.setText('Minimal intensity:')
+        self.intensity_getter = QtWidgets.QLineEdit(self)
+        self.intensity_getter.setText('0')
+
+        settings_layout.addWidget(intensity_label)
+        settings_layout.addWidget(self.intensity_getter)
+
+        main_layout = QtWidgets.QHBoxLayout()
+        main_layout.addLayout(settings_layout, 70)
+
+        run_button = QtWidgets.QPushButton('Run filter')
+        run_button.clicked.connect(self.__buttonClose)
+
+        main_layout.addWidget(run_button, 30, QtCore.Qt.AlignmentFlag.AlignBottom)
+
+        self.setLayout(main_layout)
+
+    def __buttonClose(self):
+        self.runFilter = True
+        self.close()

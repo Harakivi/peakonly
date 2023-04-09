@@ -14,3 +14,4 @@ data/tmp_weights/*
 build/
 *.cpp
 *.so
+launch.json

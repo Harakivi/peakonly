@@ -46,6 +46,51 @@ class ClickableListWidget(QtWidgets.QListWidget):
         """
         self.right_click = method
 
+class ClickablTableWidget(QtWidgets.QTableWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.double_click = None
+        self.right_click = None
+
+    def mousePressEvent(self, QMouseEvent):
+        super(QtWidgets.QTableWidget, self).mousePressEvent(QMouseEvent)
+        if QMouseEvent.button() == QtCore.Qt.RightButton and self.right_click is not None:
+            self.right_click()
+
+    def mouseDoubleClickEvent(self, QMouseEvent):
+        if self.double_click is not None:
+            if QMouseEvent.button() == QtCore.Qt.LeftButton:
+                item = self.itemAt(QMouseEvent.pos())
+                if item is not None:
+                    if item.isSelected():
+                        self.double_click(item)
+
+    def connectDoubleClick(self, method):
+        """
+        Set a callable object which should be called when a user double-clicks on item
+        Parameters
+        ----------
+        method : callable
+            any callable object
+        Returns
+        -------
+        - : None
+        """
+        self.double_click = method
+
+    def connectRightClick(self, method):
+        """
+        Set a callable object which should be called when a user double-clicks on item
+        Parameters
+        ----------
+        method : callable
+            any callable object
+        Returns
+        -------
+        - : None
+        """
+        self.right_click = method
+
 
 class FileListWidget(ClickableListWidget):
     def __init__(self, *args, **kwargs):
@@ -65,20 +110,35 @@ class FileListWidget(ClickableListWidget):
         return self.file2path[item.text()]
 
 
-class FeatureListWidget(ClickableListWidget):
+class FeatureListWidget(ClickablTableWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.horizontalHeader().sectionClicked.connect(self.sortItems)
         self.features = []
-
+        self.displayedfeatures = []
+        self.intensityFilter = 0
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setColumnCount(3)
+        # Set the table headers
+        self.setHorizontalHeaderLabels(["m/z", "intensities", "rt"])
+ 
     def add_feature(self, feature):
-        name = f'#{len(self.features)}: mz = {feature.mz:.4f}, rt = {feature.rtmin:.2f} - {feature.rtmax:.2f}'
         self.features.append(feature)
-        self.addItem(name)
+        self.__addRow(feature)
+
+    def __addRow(self, feature):
+        row = self.rowCount()
+        self.insertRow(row)
+        self.setItem(row, 0, QtWidgets.QTableWidgetItem(f"{feature.mz:.4f}"))
+        self.setItem(row, 1, QtWidgets.QTableWidgetItem(f"{feature.intensities[0]:.0f}"))
+        self.setItem(row, 2, QtWidgets.QTableWidgetItem(f"{feature.rtmin:.2f} - {feature.rtmax:.2f}"))
+        self.displayedfeatures.append(feature)
+
 
     def get_feature(self, item):
-        number = item.text()
-        number = int(number[number.find('#') + 1:number.find(':')])
-        return self.features[number]
+        number = item.row()
+        return self.displayedfeatures[number]
 
     def get_all(self):
         features = []
@@ -86,10 +146,35 @@ class FeatureListWidget(ClickableListWidget):
             item = self.item(i)
             features.append(self.get_feature(item))
         return features
+    
+    def sortItems(self, column):
+        header = self.horizontalHeaderItem(column)
+        self.setRowCount(0)
+        self.displayedfeatures = []
+        match header.text():
+            case "m/z":
+                self.features = sorted(self.features, key=lambda x: x.mz)
+            case "intensities":
+                self.features = sorted(self.features, key=lambda x: x.intensities[0])
+            case "rt":
+                self.features = sorted(self.features, key=lambda x: x.rtmin)  
+        for feature in self.features:
+            if feature.intensities[0] >= self.intensityFilter:
+                self.__addRow(feature)
+                    
+    def filterFeaturesByIntensity(self, intensity):
+        self.intensityFilter = intensity
+        self.setRowCount(0)
+        self.displayedfeatures = []
+        for feature in self.features:
+            if feature.intensities[0] >= self.intensityFilter:
+                self.__addRow(feature)
 
     def clear(self):
-        super(FeatureListWidget, self).clear()
+        self.setRowCount(0)
         self.features = []
+        self.displayedfeatures = []
+        self.intensityFilter = 0
 
 
 class ProgressBarsListItem(QtWidgets.QWidget):

@@ -1,5 +1,5 @@
 import os
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class ClickableListWidget(QtWidgets.QListWidget):
@@ -45,6 +45,7 @@ class ClickableListWidget(QtWidgets.QListWidget):
         - : None
         """
         self.right_click = method
+
 
 class ClickablTableWidget(QtWidgets.QTableWidget):
     def __init__(self, *args, **kwargs):
@@ -117,12 +118,16 @@ class FeatureListWidget(ClickablTableWidget):
         self.features = []
         self.displayedfeatures = []
         self.intensityFilter = 0
-        self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setSelectionMode(
+            QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.setColumnCount(3)
         # Set the table headers
         self.setHorizontalHeaderLabels(["m/z", "intensities", "rt"])
- 
+
     def add_feature(self, feature):
         self.features.append(feature)
         self.__addRow(feature)
@@ -131,10 +136,30 @@ class FeatureListWidget(ClickablTableWidget):
         row = self.rowCount()
         self.insertRow(row)
         self.setItem(row, 0, QtWidgets.QTableWidgetItem(f"{feature.mz:.4f}"))
-        self.setItem(row, 1, QtWidgets.QTableWidgetItem(f"{feature.intensities[0]:.0f}"))
-        self.setItem(row, 2, QtWidgets.QTableWidgetItem(f"{feature.rtmin:.2f} - {feature.rtmax:.2f}"))
+        self.setItem(row, 1, QtWidgets.QTableWidgetItem(
+            f"{feature.intensities[0]:.0f}"))
+        self.setItem(row, 2, QtWidgets.QTableWidgetItem(
+            f"{feature.rtmin:.2f} - {feature.rtmax:.2f}"))
+        formulas = ""
+        if len(feature.chemSpyder_mz_Results) > 0:
+            self.setColumnCount(4)
+            # Set the table headers
+            self.setHorizontalHeaderLabels(["m/z", "intensities", "rt", "chemSpyderF Results"])
+            for id in  feature.chemSpyder_mz_Results:
+                formulas += str(id) + "   " + feature.chemSpyder_mz_Results[id]["CommonName"] + "   " + feature.chemSpyder_mz_Results[id]["Formula"] + "\r\n"
+            self.setItem(row, 3, QtWidgets.QTableWidgetItem(formulas))
         self.displayedfeatures.append(feature)
-
+    
+    def updateDatas(self):
+        self.setRowCount(0)
+        self.setColumnCount(3)
+        self.displayedfeatures = []
+        for feature in self.features:
+            if feature.intensities[0] >= self.intensityFilter:
+                self.__addRow(feature)
+        self.resizeRowsToContents()
+        self.resizeColumnsToContents()
+            
 
     def get_feature(self, item):
         number = item.row()
@@ -146,32 +171,42 @@ class FeatureListWidget(ClickablTableWidget):
             item = self.item(i)
             features.append(self.get_feature(item))
         return features
-    
+
     def sortItems(self, column):
         header = self.horizontalHeaderItem(column)
         self.setRowCount(0)
+        self.setColumnCount(3)
         self.displayedfeatures = []
         match header.text():
             case "m/z":
                 self.features = sorted(self.features, key=lambda x: x.mz)
             case "intensities":
-                self.features = sorted(self.features, key=lambda x: x.intensities[0])
+                self.features = sorted(
+                    self.features, key=lambda x: x.intensities[0])
             case "rt":
-                self.features = sorted(self.features, key=lambda x: x.rtmin)  
+                self.features = sorted(self.features, key=lambda x: x.rtmin)
+            case "chemSpyderF Results":
+                self.features = sorted(self.features, key=lambda x: x.chemSpyder_mz_Results.items(), reverse = True)
         for feature in self.features:
             if feature.intensities[0] >= self.intensityFilter:
                 self.__addRow(feature)
-                    
+        self.resizeRowsToContents()
+        self.resizeColumnsToContents()
+
     def filterFeaturesByIntensity(self, intensity):
         self.intensityFilter = intensity
         self.setRowCount(0)
+        self.setColumnCount(3)
         self.displayedfeatures = []
         for feature in self.features:
             if feature.intensities[0] >= self.intensityFilter:
                 self.__addRow(feature)
+        self.resizeRowsToContents()
+        self.resizeColumnsToContents()
 
     def clear(self):
         self.setRowCount(0)
+        self.setColumnCount(3)
         self.features = []
         self.displayedfeatures = []
         self.intensityFilter = 0
@@ -259,7 +294,8 @@ class GetFoldersWidget(QtWidgets.QWidget):
         folder_getter_layout.addWidget(button, 15)
 
         self.list_widget = QtWidgets.QListWidget()
-        self.list_widget.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.list_widget.setSelectionMode(
+            QtWidgets.QAbstractItemView.ExtendedSelection)
 
         main_layout = QtWidgets.QVBoxLayout()
         main_layout.addLayout(folder_getter_layout)
@@ -298,9 +334,45 @@ class GetFileWidget(QtWidgets.QWidget):
 
     def set_file(self):
         filter = f'{self.extension} (*.{self.extension})'
-        file, _ = QtWidgets.QFileDialog.getOpenFileName(None, None, None, filter)
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            None, None, None, filter)
         if file:
             self.lineEdit.setText(file)
 
     def get_file(self):
         return self.lineEdit.text()
+    
+class IntensitySetterForFilterWindow(QtWidgets.QDialog):
+    def __init__(self, parent):
+        self.parent = parent
+        super().__init__(parent)
+        self.setWindowTitle('peakonly: filter features by intensity')
+        self._init_ui()  # initialize user interface
+
+    def _init_ui(self):
+        self.setFixedHeight(100)
+        self.setFixedWidth(400)
+        self.runFilter = False
+
+        # Selection of parameters
+        settings_layout = QtWidgets.QVBoxLayout()
+
+        intensity_label = QtWidgets.QLabel()
+        intensity_label.setText('Minimal intensity:')
+        self.intensity_getter = QtWidgets.QLineEdit(self)
+        self.intensity_getter.setText('0')
+
+        run_button = QtWidgets.QPushButton('Run filter')
+        run_button.clicked.connect(self.__buttonClose)
+
+        main_layout = QtWidgets.QHBoxLayout()
+        settings_layout.addWidget(intensity_label)
+        settings_layout.addWidget(self.intensity_getter)
+        settings_layout.addWidget(run_button, 30, QtCore.Qt.AlignmentFlag.AlignRight)
+        main_layout.addLayout(settings_layout, 70)
+
+        self.setLayout(main_layout)
+
+    def __buttonClose(self):
+        self.runFilter = True
+        self.close()

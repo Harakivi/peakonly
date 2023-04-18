@@ -7,3 +7,5 @@ PyQt5
 scipy
 torch >= 1.2.0
 tqdm
+requests
+pyyaml

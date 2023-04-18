@@ -4,8 +4,11 @@ from PyQt5 import QtWidgets, QtCore
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from processing_utils.roi import construct_tic, construct_eic
-from gui_utils.auxilary_utils import ProgressBarsList, ProgressBarsListItem, FileListWidget, FeatureListWidget
+from gui_utils.auxilary_utils import ProgressBarsList, ProgressBarsListItem, FileListWidget, FeatureListWidget, IntensitySetterForFilterWindow
 from gui_utils.threading import Worker
+from gui_utils.chemSpyder import GetDataSourcesListDialog, GetChargeDialog
+from processing_utils.requests import get_ChemSpyederDatas_For_Features
+import yaml
 
 
 class AbtractMainWindow(QtWidgets.QMainWindow):
@@ -55,12 +58,40 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             self._list_of_features.add_feature(feature)
         self._feature_parameters = parameters
 
+    def set_chemSpyder_DataSources(self):
+        file = open('settings.yaml')
+        setttingsFile = yaml.safe_load(file)
+        file.close()
+        dataSourcesSetter = GetDataSourcesListDialog(self, setttingsFile['chemSpyderDataSources'])
+        dataSourcesSetter.exec_()
+        if dataSourcesSetter.saveChanges:
+            setttingsFile['chemSpyderDataSources'] = dataSourcesSetter.searchList.getItems()
+            file = open("settings.yaml", 'w')
+            yaml.dump(setttingsFile, file)
+
+    def get_chemSpyderResults(self):
+        charge = GetChargeDialog(self)
+        charge.exec_()
+        if charge.startSearch:
+            file = open('settings.yaml')
+            setttingsFile = yaml.safe_load(file)
+            dataSources = setttingsFile['chemSpyderDataSources']
+        
+            pb = ProgressBarsListItem('chemSpyder Search', parent=self._pb_list)
+            self._pb_list.addItem(pb)
+            worker = Worker(get_ChemSpyederDatas_For_Features, self._list_of_features.displayedfeatures, dataSources, charge.charge_getter.value())
+            worker.signals.progress.connect(pb.setValue)
+            worker.signals.result.connect(self._list_of_features.updateDatas)
+            worker.signals.finished.connect(partial(self._threads_finisher, pb=pb))
+
+            self._thread_pool.start(worker)
+    
+    
     def filter_features_by_intensity(self):
         intensitySetter = IntensitySetterForFilterWindow(self)
         intensitySetter.exec_()
         if intensitySetter.runFilter:
             self._list_of_features.filterFeaturesByIntensity(int(intensitySetter.intensity_getter.text()))
-        
 
     def plotter(self, obj):
         if not self._label2line:  # in case if 'feature' was plotted
@@ -94,7 +125,7 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
         self._figure.clear()
         self._ax = self._figure.add_subplot(111)
         feature.plot(self._ax, shifted=shifted)
-        self._ax.set_title(item.text())
+        self._ax.set_title("m/z:"+ str(feature.mz))
         self._ax.set_xlabel('Retention time')
         self._ax.set_ylabel('Intensity')
         self._ax.ticklabel_format(axis='y', scilimits=(0, 0))
@@ -104,6 +135,9 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
     def plot_tic(self, file):
         label = f'TIC: {file[:file.rfind(".")]}'
         plotted = False
+        path = self._list_of_files.file2path[file]
+
+        construct_tic( path, label)
         if label not in self._label2line:
             path = self._list_of_files.file2path[file]
 
@@ -122,6 +156,9 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
     def plot_eic(self, file, mz, delta):
         label = f'EIC {mz:.4f} ± {delta:.4f}: {file[:file.rfind(".")]}'
         plotted = False
+        path = self._list_of_files.file2path[file]
+
+        construct_eic( path, label, mz, delta)
         if label not in self._label2line:
             path = self._list_of_files.file2path[file]
 
@@ -153,38 +190,3 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             self._ax.set_ylabel('Intensity')
             self._ax.ticklabel_format(axis='y', scilimits=(0, 0))
         self._canvas.draw()
-
-class IntensitySetterForFilterWindow(QtWidgets.QDialog):
-    def __init__(self, parent: AbtractMainWindow):
-        self.parent = parent
-        super().__init__(parent)
-        self.setWindowTitle('peakonly: filter features by intensity')
-        self._init_ui()  # initialize user interface
-
-    def _init_ui(self):
-        self.runFilter = False
-
-        # Selection of parameters
-        settings_layout = QtWidgets.QVBoxLayout()
-
-        intensity_label = QtWidgets.QLabel()
-        intensity_label.setText('Minimal intensity:')
-        self.intensity_getter = QtWidgets.QLineEdit(self)
-        self.intensity_getter.setText('0')
-
-        settings_layout.addWidget(intensity_label)
-        settings_layout.addWidget(self.intensity_getter)
-
-        main_layout = QtWidgets.QHBoxLayout()
-        main_layout.addLayout(settings_layout, 70)
-
-        run_button = QtWidgets.QPushButton('Run filter')
-        run_button.clicked.connect(self.__buttonClose)
-
-        main_layout.addWidget(run_button, 30, QtCore.Qt.AlignmentFlag.AlignBottom)
-
-        self.setLayout(main_layout)
-
-    def __buttonClose(self):
-        self.runFilter = True
-        self.close()

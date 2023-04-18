@@ -16,12 +16,35 @@ from gui_utils.training import TrainingParameterWindow
 from gui_utils.evaluation import EvaluationParameterWindow
 from gui_utils.data_splitting import SplitterParameterWindow
 from gui_utils.threading import Worker
+import yaml
 
 
 class MainWindow(AbtractMainWindow):
     # Initialization
     def __init__(self):
         super().__init__()
+
+        if os.path.exists("settings.yaml") == False:
+            setttingsFile = {
+                'chemSpyderApikey': '',
+                'chemSpyderDataSources': []
+            }
+            with open("settings.yaml", 'x') as f:
+                yaml.dump(setttingsFile, f)
+        else:
+            with open('settings.yaml', 'r') as file:
+                setttingsFile = yaml.safe_load(file)
+                if setttingsFile == None:
+                    setttingsFile = dict()
+                if setttingsFile.get('chemSpyderApikey') == None:
+                    setttingsFile['chemSpyderApikey'] = ''
+                if setttingsFile.get('chemSpyderDataSources') == None:
+                    setttingsFile['chemSpyderDataSources'] = []
+                file.close()
+                file = open('settings.yaml', 'w')
+                yaml.dump(setttingsFile, file)
+                
+
         # create menu
         self._create_menu()
 
@@ -147,9 +170,13 @@ class MainWindow(AbtractMainWindow):
         advanced_model.addMenu(advanced_model_fine_tuning)
         advanced_model.addMenu(advanced_model_evaluation)
 
+        advanced_chemSpyderDataSourcesSet = QtWidgets.QAction('Set chemSpyder data sources', self)
+        advanced_chemSpyderDataSourcesSet.triggered.connect(partial(self.set_chemSpyder_DataSources))
+
         advanced.addMenu(advanced_data_processing)
         advanced.addMenu(advanced_data_mining)
         advanced.addMenu(advanced_model)
+        advanced.addAction(advanced_chemSpyderDataSourcesSet)
 
     def _init_ui(self):
         # Layouts
@@ -171,15 +198,16 @@ class MainWindow(AbtractMainWindow):
 
         canvas_files_features_layout = QtWidgets.QHBoxLayout()
         canvas_files_features_layout.addLayout(files_layout, 15)
-        canvas_files_features_layout.addLayout(canvas_layout, 70)
-        canvas_files_features_layout.addLayout(features_layout, 15)
+        canvas_files_features_layout.addLayout(canvas_layout, 55)
+        #canvas_files_features_layout.addLayout(features_layout, 30)
 
         scrollable_pb_list = QtWidgets.QScrollArea()
         scrollable_pb_list.setWidget(self._pb_list)
         scrollable_pb_list.setWidgetResizable(True)
 
         main_layout = QtWidgets.QVBoxLayout()
-        main_layout.addLayout(canvas_files_features_layout, 90)
+        main_layout.addLayout(canvas_files_features_layout, 50)
+        main_layout.addLayout(features_layout, 40)
         main_layout.addWidget(scrollable_pb_list, 10)
 
         widget = QtWidgets.QWidget()
@@ -410,10 +438,12 @@ class FeatureContextMenu(QtWidgets.QMenu):
         with_rt_correction = QtWidgets.QAction('Plot with rt correction', parent)
         without_rt_correction = QtWidgets.QAction('Plot without rt correction', parent)
         filter_by_intensity = QtWidgets.QAction('Filter by intensity', parent)
+        get_chemSpyderResults = QtWidgets.QAction('chemSpyder search', parent)
 
         menu.addAction(with_rt_correction)
         menu.addAction(without_rt_correction)
         menu.addAction(filter_by_intensity)
+        menu.addAction(get_chemSpyderResults)
 
         action = menu.exec_(QtGui.QCursor.pos())
 
@@ -423,6 +453,8 @@ class FeatureContextMenu(QtWidgets.QMenu):
             self.parent.plot_feature(feature, shifted=False)
         elif action == filter_by_intensity:
             self.parent.filter_features_by_intensity()
+        elif action == get_chemSpyderResults:
+            self.parent.get_chemSpyderResults()
 
 
 if __name__ == '__main__':

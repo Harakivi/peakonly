@@ -10,6 +10,8 @@ from itertools import permutations
 def find_mzML(path, array=None):
     if array is None:
         array = []
+    if path == "":
+        return array
     for obj in os.listdir(path):
         obj_path = os.path.join(path, obj)
         if os.path.isdir(obj_path):  # object is a directory
@@ -364,8 +366,8 @@ def border_correction(component, borders):
 
 class Feature:
     def __init__(self, samples, rois, borders, shifts,
-                 intensities, mz, rtmin, rtmax,
-                 mzrtgroup, similarity_group):
+                 intensities, mz, rtmin, rtmax, delta_mz,
+                 mzrtgroup, similarity_group,chemSpyder_mz_Results, supposed_formula):
         # common information
         self.samples = samples
         self.rois = rois
@@ -377,8 +379,11 @@ class Feature:
         self.rtmin = rtmin
         self.rtmax = rtmax
         # extra information
+        self.delta_mz = delta_mz
         self.mzrtgroup = mzrtgroup  # from the same or separate groupedROI object
         self.similarity_group = similarity_group
+        self.chemSpyder_mz_Results = chemSpyder_mz_Results
+        self.supposed_formula = supposed_formula
 
     def __len__(self):
         return len(self.samples)
@@ -398,6 +403,7 @@ class Feature:
         self.rois.append(roi)
         self.borders.append(border)
         self.shifts.append(shift)
+        self.intensities.append(intensity)
         self.intensities.append(intensity)
 
     def extend(self, feature):

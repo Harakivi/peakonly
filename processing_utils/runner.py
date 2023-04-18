@@ -47,7 +47,7 @@ class BasicRunner:
         self.peak_minimum_points = peak_minimum_points
         self.device = device
 
-    def __call__(self, roi, sample_name, progress_callback=None, operation_callback=None):
+    def __call__(self, roi, sample_name, delta_mz, progress_callback=None, operation_callback=None):
         """
         Processing single roi
 
@@ -89,7 +89,7 @@ class BasicRunner:
                 rtmin = roi.rt[0] + border[0] / scan_frequency
                 rtmax = roi.rt[0] + border[1] / scan_frequency
                 feature = Feature([sample_name], [roi], [border], [0], [np.sum(roi.i[border[0]:border[1]])],
-                                  roi.mzmean, rtmin, rtmax, 0, 0)
+                                  roi.mzmean, rtmin, rtmax, delta_mz, 0, 0, dict(), "")
                 features.append(feature)
         return features
 
@@ -172,7 +172,7 @@ class FilesRunner(BasicRunner):
         if operation_callback is not None:
             operation_callback.emit(f'Finding peaks in detected ROIs:')
         for i, roi in enumerate(rois):
-            features_from_roi = super(FilesRunner, self).__call__(roi, file)
+            features_from_roi = super(FilesRunner, self).__call__(roi, file, self.delta_mz)
             features.extend(features_from_roi)
             new_percentage = int(i * 100 / len(rois))
             if progress_callback is not None and new_percentage > percentage:

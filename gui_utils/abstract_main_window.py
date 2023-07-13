@@ -7,7 +7,7 @@ from processing_utils.roi import construct_tic, construct_eic
 from gui_utils.auxilary_utils import ProgressBarsList, ProgressBarsListItem, FileListWidget, FeatureListWidget, IntensitySetterForFilterWindow
 from gui_utils.threading import Worker
 from gui_utils.chemSpyder import GetDataSourcesListDialog, GetChargeDialog
-from processing_utils.requests import get_ChemSpyederDatas_For_Features
+from processing_utils.requests import get_ChemSpyederDatas_For_Features, get_Image_For_Feature
 import yaml
 
 
@@ -50,6 +50,8 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             msg.setText(text)
             msg.setIcon(icon)
             msg.exec_()
+        for id in  self._list_of_features.displayedfeatures[1].chemSpyder_mz_Results:
+            get_Image_For_Feature(id).show()
 
     def set_features(self, obj):
         features, parameters = obj
@@ -85,6 +87,7 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             worker.signals.finished.connect(partial(self._threads_finisher, pb=pb))
 
             self._thread_pool.start(worker)
+        
     
     
     def filter_features_by_intensity(self):

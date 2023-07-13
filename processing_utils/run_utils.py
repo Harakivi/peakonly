@@ -5,7 +5,7 @@ from collections import defaultdict
 from scipy.interpolate import interp1d
 from processing_utils.matching import intersected, conv2correlation
 from itertools import permutations
-
+from PIL import Image
 
 def find_mzML(path, array=None):
     if array is None:
@@ -367,7 +367,7 @@ def border_correction(component, borders):
 class Feature:
     def __init__(self, samples, rois, borders, shifts,
                  intensities, mz, rtmin, rtmax, delta_mz,
-                 mzrtgroup, similarity_group,chemSpyder_mz_Results, supposed_formula):
+                 mzrtgroup, similarity_group,chemSpyder_mz_Results, supposed_formula, png = 0):
         # common information
         self.samples = samples
         self.rois = rois
@@ -384,6 +384,7 @@ class Feature:
         self.similarity_group = similarity_group
         self.chemSpyder_mz_Results = chemSpyder_mz_Results
         self.supposed_formula = supposed_formula
+        self.png = png
 
     def __len__(self):
         return len(self.samples)

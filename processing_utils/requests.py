@@ -1,5 +1,6 @@
 import requests
 import yaml
+import base64, PIL.Image, io
 
 def get_DataSources():
     file = open('settings.yaml')
@@ -14,6 +15,20 @@ def get_DataSources():
         return response.json()["dataSources"]
     else:
         return response
+    
+def get_Image_For_Feature(id):
+    file = open('settings.yaml')
+    setttingsFile = yaml.safe_load(file)
+    requestUrl = "https://api.rsc.org/compounds/v1/records/" + str(id) + "/image"
+    requestHeaders = {
+        "apikey": setttingsFile['chemSpyderApikey'],
+        "Accept": "application/json"
+    }
+
+    response = requests.get(requestUrl, headers=requestHeaders)
+    return PIL.Image.open(io.BytesIO(base64.decodebytes(bytes(response.json()["image"], "utf-8"))))
+
+
         
 
 def get_ChemSpyederDatas_For_Features(fetures: list, dataSources: list, charge = -1,progress_callback=None):

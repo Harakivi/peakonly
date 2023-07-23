@@ -13,7 +13,7 @@ class ResultTable:
         self.mz = np.zeros(n_features)
         self.rtmin = np.zeros(n_features)
         self.rtmax = np.zeros(n_features)
-        self.chemSpyder_mz_Results = list()
+        self.chemSpider_mz_Results = list()
         # fill in intensities values
         for i, feature in enumerate(features):
             self.mz[i] = feature.mz
@@ -21,7 +21,7 @@ class ResultTable:
             self.rtmax[i] = feature.rtmax
             for j, sample in enumerate(feature.samples):
                 self.intensities[self.files[sample], i] = feature.intensities[j]
-            self.chemSpyder_mz_Results.append(str(feature.chemSpyder_mz_Results))
+            self.chemSpider_mz_Results.append(str(feature.chemSpider_mz_Results))
 
     def fill_zeros(self, delta_mz):
         print('zero filling...')
@@ -54,5 +54,5 @@ class ResultTable:
         df['rtmax'] = self.rtmax / 60
         for file, k in self.files.items():
             df[file] = self.intensities[k]
-        df['chemSpyder_mz_Results'] = self.chemSpyder_mz_Results
+        df['chemSpider_mz_Results'] = self.chemSpider_mz_Results
         df.to_csv(path)

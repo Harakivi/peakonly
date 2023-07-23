@@ -26,8 +26,8 @@ class MainWindow(AbtractMainWindow):
 
         if os.path.exists("settings.yaml") == False:
             setttingsFile = {
-                'chemSpyderApikey': '',
-                'chemSpyderDataSources': []
+                'chemSpiderApikey': '',
+                'chemSpiderDataSources': []
             }
             with open("settings.yaml", 'x') as f:
                 yaml.dump(setttingsFile, f)
@@ -36,10 +36,10 @@ class MainWindow(AbtractMainWindow):
                 setttingsFile = yaml.safe_load(file)
                 if setttingsFile == None:
                     setttingsFile = dict()
-                if setttingsFile.get('chemSpyderApikey') == None:
-                    setttingsFile['chemSpyderApikey'] = ''
-                if setttingsFile.get('chemSpyderDataSources') == None:
-                    setttingsFile['chemSpyderDataSources'] = []
+                if setttingsFile.get('chemSpiderApikey') == None:
+                    setttingsFile['chemSpiderApikey'] = ''
+                if setttingsFile.get('chemSpiderDataSources') == None:
+                    setttingsFile['chemSpiderDataSources'] = []
                 file.close()
                 file = open('settings.yaml', 'w')
                 yaml.dump(setttingsFile, file)
@@ -170,13 +170,13 @@ class MainWindow(AbtractMainWindow):
         advanced_model.addMenu(advanced_model_fine_tuning)
         advanced_model.addMenu(advanced_model_evaluation)
 
-        advanced_chemSpyderDataSourcesSet = QtWidgets.QAction('Set chemSpyder data sources', self)
-        advanced_chemSpyderDataSourcesSet.triggered.connect(partial(self.set_chemSpyder_DataSources))
+        advanced_chemSpiderDataSourcesSet = QtWidgets.QAction('Set chemSpider data sources', self)
+        advanced_chemSpiderDataSourcesSet.triggered.connect(partial(self.set_chemSpider_DataSources))
 
         advanced.addMenu(advanced_data_processing)
         advanced.addMenu(advanced_data_mining)
         advanced.addMenu(advanced_model)
-        advanced.addAction(advanced_chemSpyderDataSourcesSet)
+        advanced.addAction(advanced_chemSpiderDataSourcesSet)
 
     def _init_ui(self):
         # Layouts
@@ -438,12 +438,12 @@ class FeatureContextMenu(QtWidgets.QMenu):
         with_rt_correction = QtWidgets.QAction('Plot with rt correction', parent)
         without_rt_correction = QtWidgets.QAction('Plot without rt correction', parent)
         filter_by_intensity = QtWidgets.QAction('Filter by intensity', parent)
-        get_chemSpyderResults = QtWidgets.QAction('chemSpyder search', parent)
+        get_chemSpiderResults = QtWidgets.QAction('chemSpider search', parent)
 
         menu.addAction(with_rt_correction)
         menu.addAction(without_rt_correction)
         menu.addAction(filter_by_intensity)
-        menu.addAction(get_chemSpyderResults)
+        menu.addAction(get_chemSpiderResults)
 
         action = menu.exec_(QtGui.QCursor.pos())
 
@@ -453,8 +453,8 @@ class FeatureContextMenu(QtWidgets.QMenu):
             self.parent.plot_feature(feature, shifted=False)
         elif action == filter_by_intensity:
             self.parent.filter_features_by_intensity()
-        elif action == get_chemSpyderResults:
-            self.parent.get_chemSpyderResults()
+        elif action == get_chemSpiderResults:
+            self.parent.get_chemSpiderResults()
 
 
 if __name__ == '__main__':

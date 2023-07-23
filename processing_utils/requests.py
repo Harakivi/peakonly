@@ -1,12 +1,13 @@
 import requests
 import yaml
-import base64, PIL.Image, io
+import base64, io
+from PyQt5.QtGui import QPixmap
 
 def get_DataSources():
     file = open('settings.yaml')
     setttingsFile = yaml.safe_load(file)
     requestHeaders = {
-        "apikey": setttingsFile['chemSpyderApikey'],
+        "apikey": setttingsFile['chemSpiderApikey'],
         "Accept": "application/json",
     }
     requestUrl = "https://api.rsc.org/compounds/v1/lookups/datasources"
@@ -16,17 +17,20 @@ def get_DataSources():
     else:
         return response
     
-def get_Image_For_Feature(id):
+def get_Image_For_Feature(chemSpider_id):
     file = open('settings.yaml')
     setttingsFile = yaml.safe_load(file)
-    requestUrl = "https://api.rsc.org/compounds/v1/records/" + str(id) + "/image"
+    requestUrl = "https://api.rsc.org/compounds/v1/records/" + str(chemSpider_id) + "/image"
     requestHeaders = {
-        "apikey": setttingsFile['chemSpyderApikey'],
+        "apikey": setttingsFile['chemSpiderApikey'],
         "Accept": "application/json"
     }
 
     response = requests.get(requestUrl, headers=requestHeaders)
-    return PIL.Image.open(io.BytesIO(base64.decodebytes(bytes(response.json()["image"], "utf-8"))))
+    bytes = base64.b64decode(response.json()["image"])
+    pm = QPixmap()
+    pm.loadFromData(bytes)
+    return pm
 
 
         
@@ -49,7 +53,7 @@ def get_Feature_Ids_request(fetures: list, dataSources: list, charge = -1):
     file = open('settings.yaml')
     setttingsFile = yaml.safe_load(file)
     requestHeaders = {
-        "apikey": setttingsFile['chemSpyderApikey'],
+        "apikey": setttingsFile['chemSpiderApikey'],
         "Accept": "application/json",
         "Content-Type": "application/json"
         }
@@ -63,7 +67,7 @@ def get_Feature_Ids_request(fetures: list, dataSources: list, charge = -1):
     }
 
     for feature in fetures:
-        if len(feature.chemSpyder_mz_Results) == 0:
+        if feature.chemSpider_mz_Results == None:
             searchingStruct["featureToSearch"].append(feature)
             mass = {
                 "mass": feature.mz + charge,
@@ -93,20 +97,20 @@ def get_Feature_Ids_request(fetures: list, dataSources: list, charge = -1):
     array = response.json()["batchResults"]
 
     for i in range(len(searchingStruct["featureToSearch"])):
-        searchingStruct["featureToSearch"][i].chemSpyder_mz_Results.clear()
-        for result in array[i]["results"]:
-             if searchingStruct["featureToSearch"][i].chemSpyder_mz_Results.get(result["id"]) == None:
-                searchingStruct["featureToSearch"][i].chemSpyder_mz_Results[result["id"]] = {
-                 "id" : result["id"],
-                 "CommonName": "",
-                 "Formula": ""
-                 }
+        if(len(array[i]["results"]) > 0):
+            searchingStruct["featureToSearch"][i].chemSpider_mz_Results = dict()
+            for result in array[i]["results"]:
+                searchingStruct["featureToSearch"][i].chemSpider_mz_Results[result["id"]] = {
+                    "id" : result["id"],
+                    "CommonName": "",
+                    "Formula": ""
+                    }
 
 def get_Feature_Formulas_Request(fetures: list, progress_callback=None):
     file = open('settings.yaml')
     setttingsFile = yaml.safe_load(file)
     requestHeaders = {
-        "apikey": setttingsFile['chemSpyderApikey'],
+        "apikey": setttingsFile['chemSpiderApikey'],
         "Accept": "application/json",
         "Content-Type": "application/json"
         }
@@ -115,9 +119,10 @@ def get_Feature_Formulas_Request(fetures: list, progress_callback=None):
     records = dict()
 
     for feature in fetures:
-        for id in  feature.chemSpyder_mz_Results:
-            if feature.chemSpyder_mz_Results[id]["Formula"] == "":
-                recordIds.append(id)
+        if(feature.chemSpider_mz_Results != None):
+            for id in  feature.chemSpider_mz_Results:
+                if feature.chemSpider_mz_Results[id]["Formula"] == "":
+                    recordIds.append(id)
 
     if len(recordIds) == 0:
          return
@@ -147,9 +152,10 @@ def get_Feature_Formulas_Request(fetures: list, progress_callback=None):
                 }
     
     for feature in fetures:
-        for id in  feature.chemSpyder_mz_Results:
-            feature.chemSpyder_mz_Results[id]["CommonName"] = records[id]["commonName"]
-            feature.chemSpyder_mz_Results[id]["Formula"] = records[id]["formula"]
+        if(feature.chemSpider_mz_Results != None):
+            for id in  feature.chemSpider_mz_Results:
+                feature.chemSpider_mz_Results[id]["CommonName"] = records[id]["commonName"]
+                feature.chemSpider_mz_Results[id]["Formula"] = records[id]["formula"]
     
 def exceptGetRequest(requestUrl, requestHeaders):
     for i in range(10):

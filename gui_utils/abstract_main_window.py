@@ -6,7 +6,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from processing_utils.roi import construct_tic, construct_eic
 from gui_utils.auxilary_utils import ProgressBarsList, ProgressBarsListItem, FileListWidget, FeatureListWidget, IntensitySetterForFilterWindow
 from gui_utils.threading import Worker
-from gui_utils.chemSpyder import GetDataSourcesListDialog, GetChargeDialog
+from gui_utils.chemSpider import GetDataSourcesListDialog, GetChargeDialog
 from processing_utils.requests import get_ChemSpyederDatas_For_Features, get_Image_For_Feature
 import yaml
 
@@ -31,6 +31,7 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
         self._label2line = dict()  # a label (aka line name) to plotted line
         self._canvas = FigureCanvas(self._figure)
         self._toolbar = NavigationToolbar(self._canvas, self)
+        self._list_of_features.getImageCallback = get_Image_For_Feature
 
     def run_thread(self, caption: str, worker: Worker, text=None, icon=None):
         pb = ProgressBarsListItem(caption, parent=self._pb_list)
@@ -50,9 +51,7 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             msg.setText(text)
             msg.setIcon(icon)
             msg.exec_()
-        for id in  self._list_of_features.displayedfeatures[1].chemSpyder_mz_Results:
-            get_Image_For_Feature(id).show()
-
+            
     def set_features(self, obj):
         features, parameters = obj
         self._list_of_features.clear()
@@ -60,26 +59,28 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             self._list_of_features.add_feature(feature)
         self._feature_parameters = parameters
 
-    def set_chemSpyder_DataSources(self):
+    def set_chemSpider_DataSources(self):
         file = open('settings.yaml')
         setttingsFile = yaml.safe_load(file)
         file.close()
-        dataSourcesSetter = GetDataSourcesListDialog(self, setttingsFile['chemSpyderDataSources'])
+        dataSourcesSetter = GetDataSourcesListDialog(self, setttingsFile['chemSpiderDataSources'])
         dataSourcesSetter.exec_()
         if dataSourcesSetter.saveChanges:
-            setttingsFile['chemSpyderDataSources'] = dataSourcesSetter.searchList.getItems()
+            setttingsFile['chemSpiderDataSources'] = dataSourcesSetter.searchList.getItems()
             file = open("settings.yaml", 'w')
             yaml.dump(setttingsFile, file)
 
-    def get_chemSpyderResults(self):
+    def get_chemSpiderResults(self):
         charge = GetChargeDialog(self)
         charge.exec_()
         if charge.startSearch:
             file = open('settings.yaml')
             setttingsFile = yaml.safe_load(file)
-            dataSources = setttingsFile['chemSpyderDataSources']
+            dataSources = setttingsFile['chemSpiderDataSources']
+            # get_ChemSpyederDatas_For_Features(self._list_of_features.displayedfeatures, dataSources)
+            # self._list_of_features.updateDatas()
         
-            pb = ProgressBarsListItem('chemSpyder Search', parent=self._pb_list)
+            pb = ProgressBarsListItem('chemSpider Search', parent=self._pb_list)
             self._pb_list.addItem(pb)
             worker = Worker(get_ChemSpyederDatas_For_Features, self._list_of_features.displayedfeatures, dataSources, charge.charge_getter.value())
             worker.signals.progress.connect(pb.setValue)
@@ -87,7 +88,6 @@ class AbtractMainWindow(QtWidgets.QMainWindow):
             worker.signals.finished.connect(partial(self._threads_finisher, pb=pb))
 
             self._thread_pool.start(worker)
-        
     
     
     def filter_features_by_intensity(self):

@@ -367,7 +367,7 @@ def border_correction(component, borders):
 class Feature:
     def __init__(self, samples, rois, borders, shifts,
                  intensities, mz, rtmin, rtmax, delta_mz,
-                 mzrtgroup, similarity_group,chemSpyder_mz_Results, supposed_formula, png = 0):
+                 mzrtgroup, similarity_group,chemSpider_mz_Results:dict = None):
         # common information
         self.samples = samples
         self.rois = rois
@@ -382,9 +382,7 @@ class Feature:
         self.delta_mz = delta_mz
         self.mzrtgroup = mzrtgroup  # from the same or separate groupedROI object
         self.similarity_group = similarity_group
-        self.chemSpyder_mz_Results = chemSpyder_mz_Results
-        self.supposed_formula = supposed_formula
-        self.png = png
+        self.chemSpider_mz_Results = chemSpider_mz_Results
 
     def __len__(self):
         return len(self.samples)

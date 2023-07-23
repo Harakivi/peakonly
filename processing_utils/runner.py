@@ -89,7 +89,7 @@ class BasicRunner:
                 rtmin = roi.rt[0] + border[0] / scan_frequency
                 rtmax = roi.rt[0] + border[1] / scan_frequency
                 feature = Feature([sample_name], [roi], [border], [0], [np.sum(roi.i[border[0]:border[1]])],
-                                  roi.mzmean, rtmin, rtmax, delta_mz, 0, 0, dict(), "")
+                                  roi.mzmean, rtmin, rtmax, delta_mz, 0, 0)
                 features.append(feature)
         return features
 

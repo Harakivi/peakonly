@@ -1,6 +1,6 @@
 import os
 from PyQt5 import QtWidgets, QtCore, QtGui
-
+from functools import partial
 
 class ClickableListWidget(QtWidgets.QListWidget):
     def __init__(self, *args, **kwargs):
@@ -92,6 +92,55 @@ class ClickablTableWidget(QtWidgets.QTableWidget):
         """
         self.right_click = method
 
+class ClickablTableChemSpiderWidget(QtWidgets.QTableWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.double_click = None
+        self.right_click = None
+
+    def mousePressEvent(self, QMouseEvent):
+        super(QtWidgets.QTableWidget, self).mousePressEvent(QMouseEvent)
+        if QMouseEvent.button() == QtCore.Qt.RightButton and self.right_click is not None:
+            self.right_click()
+
+    def mouseDoubleClickEvent(self, QMouseEvent):
+        if self.double_click is not None:
+            if QMouseEvent.button() == QtCore.Qt.LeftButton:
+                item = self.itemAt(QMouseEvent.pos())
+                if(item != None):
+                    row = item.row()
+                    id = self.item(row, 0).text()
+                    if id is not None:
+                        pic = QtWidgets.QTableWidgetItem()
+                        pic.setData(QtCore.Qt.DecorationRole, self.double_click(int(id)))
+                        self.setItem(row, 3, pic)
+
+    def connectDoubleClick(self, method):
+        """
+        Set a callable object which should be called when a user double-clicks on item
+        Parameters
+        ----------
+        method : callable
+            any callable object
+        Returns
+        -------
+        - : None
+        """
+        self.double_click = method
+
+    def connectRightClick(self, method):
+        """
+        Set a callable object which should be called when a user double-clicks on item
+        Parameters
+        ----------
+        method : callable
+            any callable object
+        Returns
+        -------
+        - : None
+        """
+        self.right_click = method
+
 
 class FileListWidget(ClickableListWidget):
     def __init__(self, *args, **kwargs):
@@ -127,6 +176,7 @@ class FeatureListWidget(ClickablTableWidget):
         self.setColumnCount(3)
         # Set the table headers
         self.setHorizontalHeaderLabels(["m/z", "intensities", "rt"])
+        self.getImageCallback = None
 
     def add_feature(self, feature):
         self.features.append(feature)
@@ -140,15 +190,50 @@ class FeatureListWidget(ClickablTableWidget):
             f"{feature.intensities[0]:.0f}"))
         self.setItem(row, 2, QtWidgets.QTableWidgetItem(
             f"{feature.rtmin:.2f} - {feature.rtmax:.2f}"))
-        formulas = ""
-        if len(feature.chemSpyder_mz_Results) > 0:
+        if feature.chemSpider_mz_Results != None:
             self.setColumnCount(4)
             # Set the table headers
-            self.setHorizontalHeaderLabels(["m/z", "intensities", "rt", "chemSpyderF Results"])
-            for id in  feature.chemSpyder_mz_Results:
-                formulas += str(id) + "   " + feature.chemSpyder_mz_Results[id]["CommonName"] + "   " + feature.chemSpyder_mz_Results[id]["Formula"] + "\r\n"
-            self.setItem(row, 3, QtWidgets.QTableWidgetItem(formulas))
+            self.setHorizontalHeaderLabels(["m/z", "intensities", "rt", "chemSpider Results"])
+
+            chemSpider_Results = ClickablTableChemSpiderWidget(self)
+            chemSpider_Results.connectDoubleClick(self.getImage)
+            chemSpider_Results.connectRightClick(partial(chemSpiderResContextMenu, self))
+            chemSpider_Results.setColumnCount(4) 
+            # Set the table headers
+            chemSpider_Results.setHorizontalHeaderLabels(["chemSpider id", "CommonName", "Formula", "Image"])
+            chemSpider_Results.setVerticalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+            chemSpider_Results.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+            chemSpider_Results.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+            chemSpider_Results.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+            chemSpider_Results.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeToContents)
+            chemSpider_Results.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+            for id in  feature.chemSpider_mz_Results:
+                chemSpider_Results.insertRow(chemSpider_Results.rowCount())
+                chemSpider_Results.setItem(chemSpider_Results.rowCount() - 1, 0 ,QtWidgets.QTableWidgetItem(f"{id}"))
+                chemSpider_Results.setItem(chemSpider_Results.rowCount() - 1, 1 ,QtWidgets.QTableWidgetItem(f"{feature.chemSpider_mz_Results[id]['CommonName']}"))
+                chemSpider_Results.setItem(chemSpider_Results.rowCount() - 1, 2 ,QtWidgets.QTableWidgetItem(f"{feature.chemSpider_mz_Results[id]['Formula']}"))
+                if(feature.chemSpider_mz_Results[id].get("image") != None):
+                    pic = QtWidgets.QTableWidgetItem()
+                    pic.setData(QtCore.Qt.DecorationRole, feature.chemSpider_mz_Results[id]["image"])
+                    chemSpider_Results.setItem(chemSpider_Results.rowCount() - 1, 3, pic)
+
+            self.setCellWidget(row, 3, chemSpider_Results)
         self.displayedfeatures.append(feature)
+
+    def getImage(self, id:int):
+        pic = None
+        for feature in self.displayedfeatures:
+            if(feature.chemSpider_mz_Results != None):
+                res = feature.chemSpider_mz_Results.get(id)
+                if(res != None):
+                    if(feature.chemSpider_mz_Results[id].get("image") == None and pic != None):
+                        res["image"] = pic
+                    elif(feature.chemSpider_mz_Results[id].get("image") != None and pic == None):
+                        pic = res["image"]
+                    elif(feature.chemSpider_mz_Results[id].get("image") == None and pic == None):
+                        pic = self.getImageCallback(id)
+                        res["image"] = pic
+        return pic
     
     def updateDatas(self):
         self.setRowCount(0)
@@ -185,8 +270,8 @@ class FeatureListWidget(ClickablTableWidget):
                     self.features, key=lambda x: x.intensities[0])
             case "rt":
                 self.features = sorted(self.features, key=lambda x: x.rtmin)
-            case "chemSpyderF Results":
-                self.features = sorted(self.features, key=lambda x: x.chemSpyder_mz_Results.items(), reverse = True)
+            case "chemSpiderF Results":
+                self.features = sorted(self.features, key=lambda x: x.chemSpider_mz_Results.items(), reverse = True)
         for feature in self.features:
             if feature.intensities[0] >= self.intensityFilter:
                 self.__addRow(feature)
@@ -210,6 +295,38 @@ class FeatureListWidget(ClickablTableWidget):
         self.features = []
         self.displayedfeatures = []
         self.intensityFilter = 0
+
+class chemSpiderResContextMenu(QtWidgets.QMenu):
+    def __init__(self, parent: FeatureListWidget):
+        self.parent = parent
+        super().__init__(parent)
+
+        menu = QtWidgets.QMenu(parent)
+
+        get_chemSpiderResults = QtWidgets.QAction('Get images', parent)
+
+        menu.addAction(get_chemSpiderResults)
+
+        action = menu.exec_(QtGui.QCursor.pos())
+
+        cell = parent.cellWidget(self.parent.currentRow(), 3)
+
+        items = cell.selectedItems()
+        
+        rows = list()
+        ids = list()
+
+        for item in items:
+            if(item.column() == 0):
+                rows.append(item.row())
+                ids.append(int(item.text()))
+
+        if action == get_chemSpiderResults:
+            for i in range(len(ids)):
+                pic = QtWidgets.QTableWidgetItem()
+                pic.setData(QtCore.Qt.DecorationRole, self.parent.getImage(ids[i]))
+                cell.setItem(rows[i], 3, pic)
+                
 
 
 class ProgressBarsListItem(QtWidgets.QWidget):
